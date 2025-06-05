@@ -2,6 +2,7 @@ import gradio as gr
 import os
 import tempfile
 import traceback
+import shutil
 from utils import extract_text_from_pdf, chunk_text, generate_notes, generate_questions
 
 def process_pdf(pdf_file, progress=gr.Progress()):
@@ -12,18 +13,14 @@ def process_pdf(pdf_file, progress=gr.Progress()):
     try:
         progress(0.1, desc="Processing PDF...")
         
-        # Create temporary file path
-        temp_dir = tempfile.gettempdir()
-        temp_path = os.path.join(temp_dir, f"temp_{pdf_file.name}")
-        
-        # Copy uploaded file to temp location
-        with open(temp_path, 'wb') as f:
-            f.write(pdf_file.read())
+        # Get the file path directly from Gradio
+        # In Gradio, pdf_file is already a file path string
+        pdf_path = pdf_file.name if hasattr(pdf_file, 'name') else pdf_file
         
         progress(0.3, desc="Extracting text from PDF...")
         
-        # Extract text from PDF
-        text = extract_text_from_pdf(temp_path)
+        # Extract text directly from the uploaded file path
+        text = extract_text_from_pdf(pdf_path)
         
         if not text or len(text.strip()) < 50:
             return "⚠️ Could not extract sufficient text from PDF. Please ensure it's a text-based PDF.", "", "❌ Text extraction failed"
@@ -47,30 +44,27 @@ def process_pdf(pdf_file, progress=gr.Progress()):
         # Generate questions
         practice_questions = generate_questions(notes_content)
         
-        # Clean up temp file
-        try:
-            os.remove(temp_path)
-        except:
-            pass
-        
         progress(1.0, desc="Complete!")
         
+        # Get filename for display
+        filename = os.path.basename(pdf_path)
+        
         # Format the output
-        formatted_notes = f"""# 📝 Study Notes - {pdf_file.name}
+        formatted_notes = f"""# 📝 Study Notes - {filename}
 ## Key Concepts Extracted:
 {study_notes}
 ---
-*Generated from: {pdf_file.name} ({len(text)} characters processed)*
+*Generated from: {filename} ({len(text)} characters processed)*
 """
 
-        formatted_questions = f"""# ❓ Practice Questions - {pdf_file.name}
+        formatted_questions = f"""# ❓ Practice Questions - {filename}
 ## Test Your Understanding:
 {practice_questions}
 ---
-*Questions based on content from: {pdf_file.name}*
+*Questions based on content from: {filename}*
 """
 
-        status = f"✅ Successfully processed {pdf_file.name}"
+        status = f"✅ Successfully processed {filename}"
         
         return formatted_notes, formatted_questions, status
         
